@@ -1,0 +1,50 @@
+services:
+  gateway:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__Redis=redis:6379
+      - NewsApi__ApiKey=${NEWS_API_KEY:-demo}
+      - AlphaVantage__ApiKey=${ALPHA_VANTAGE_KEY:-demo}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - gateway-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - gateway-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+    networks:
+      - gateway-net
+
+networks:
+  gateway-net:
+    driver: bridge
+
+volumes:
+  redis-data:
